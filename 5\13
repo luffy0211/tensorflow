@@ -1,0 +1,133 @@
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+
+
+# 加载图像
+img_path = 'd:/1.jpg'
+img = cv2.imread(img_path)
+
+start_angle = 0
+end_angle = 90
+step = 30
+
+
+for angle in range(start_angle, end_angle + step, step):
+    rows, cols, _ = img.shape
+    rotation_matrix = cv2.getRotationMatrix2D((cols/2, rows/2), angle, 1)
+    
+    rotated_img = cv2.warpAffine(img, rotation_matrix, (cols, rows))
+    plt.imshow(cv2.cvtColor(rotated_img, cv2.COLOR_BGR2RGB))
+    plt.title(f'Rotation Angle: {angle} degrees')
+    plt.axis('off')
+    plt.show()
+
+img1 = cv2.resize(img,None,fx=0.5,fy=0.5)
+plt.figure(figsize=(10,5))
+plt.imshow(cv2.cvtColor(img1,cv2.COLOR_BGR2RGB))
+
+
+plt.imshow(cv2.cvtColor(img1, cv2.COLOR_BGR2RGB))
+plt.title('Scaled Image')
+
+plt.show()
+
+enhanced_img = cv2.convertScaleAbs(img1,alpha=2.0,beta=0)
+plt.subplot(1,2,1)
+plt.imshow(cv2.cvtColor(img,cv2.COLOR_BGR2RGB))
+plt.axis('off')
+plt.title('Original Image')
+plt.subplot(1, 2, 2)
+plt.imshow(cv2.cvtColor(enhanced_img, cv2.COLOR_BGR2RGB))
+plt.axis('off')
+plt.title('Cropped Image')
+
+import tensorflow as tf
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+
+
+datagen = ImageDataGenerator(
+    rotation_range=20,  # 随机旋转角度范围
+    width_shift_range=0.2,  # 水平平移范围
+    height_shift_range=0.2,  # 垂直平移范围
+    shear_range=0.2,  # 剪切强度范围
+    zoom_range=0.2,  # 缩放范围
+    horizontal_flip=True,  # 随机水平翻转
+    brightness_range=(0.8, 1.2),  # 亮度调整范围
+    fill_mode='nearest'  # 填充像素的方式
+)
+
+test_data = datagen.flow_from_directory(
+    'D:\\melon17_split\\train',  # 训练数据集路径
+    target_size=(224, 224),  # 图像尺寸
+    batch_size=32,  # 批量大小
+    class_mode='categorical'  # 分类类型
+   
+)
+
+import tensorflow as tf
+from tensorflow.keras import layers
+
+# 创建卷积神经网络模型
+model = tf.keras.Sequential()
+# 添加卷积层
+model.add(layers.Conv2D(32, (3, 3), activation='relu', input_shape=(224, 224, 3)))
+model.add(layers.MaxPooling2D((2, 2)))
+# 添加更多的卷积层和池化层
+model.add(layers.Conv2D(64, (3, 3), activation='relu'))
+model.add(layers.MaxPooling2D((2, 2)))
+model.add(layers.Conv2D(128, (3, 3), activation='relu'))
+model.add(layers.MaxPooling2D((2, 2)))
+# 将多维数据展平为一维
+model.add(layers.Flatten())
+# 添加全连接层
+model.add(layers.Dense(17, activation='relu'))
+# 添加输出层
+model.add(layers.Dense(num_classes, activation='softmax'))
+# 编译模型
+model.compile(optimizer='adam',
+              loss='categorical_crossentropy',
+              metrics=['accuracy'])
+# 打印模型结构信息
+model.summary()
+
+model.fit(
+    train_data,  # 使用ImageDataGenerator生成的训练数据
+    epochs=10,  # 训练轮数
+    steps_per_epoch=len(train_data),  # 每轮训练的步数
+    validation_data=test_data,  # 验证数据集
+    validation_steps=len(test_data)  # 每轮验证的步数
+)
+
+import tensorflow as tf
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+tf.random.set_seed(42)
+train_data_dir = r'D:\\melon17_split\\train'
+validation_data_dir = r'D:\\melon17_split\\val'
+img_width, img_height = 150, 150
+batch_size = 32
+
+train_datagen = ImageDataGenerator(rescale=1.0/255.0)
+train_generator = train_datagen.flow_from_directory(
+    train_data_dir,
+    target_size=(img_width, img_height),
+    batch_size=batch_size,
+    class_mode='categorical',
+    shuffle=True,
+    seed=42)
+
+validation_datagen = ImageDataGenerator(rescale=1.0/255.0)
+validation_generator = validation_datagen.flow_from_directory(
+    validation_data_dir,
+    target_size=(img_width, img_height),
+    batch_size=batch_size,
+    class_mode='categorical',
+    shuffle=False)
+
+num_train_samples = train_generator.samples
+num_classes = train_generator.num_classes
+num_validation_samples = validation_generator.samples
+train_classes = list(train_generator.class_indices.keys())
+
+print("类别标签 :", train_classes)
+

@@ -1,1 +1,134 @@
 
+from DrissionPage import ChromiumPage, ChromiumOptions
+import time
+import json
+
+# 配置Edge浏览器
+options = ChromiumOptions()
+options.set_browser_path(r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe")
+
+# 创建页面对象
+page = ChromiumPage(options)
+
+# 存储所有抓到的评论数据
+all_comments = []
+
+# 监听评论区API请求
+page.listen.start('api/sns/web/v2/comment/page')
+
+# 提示用户输入具体的笔记链接
+
+note_url = "https://www.xiaohongshu.com/explore/687f870c000000000d019566?xsec_token=ABmGIog28uVvRDocZjvR71m5zHytbNUvBdeVac0wngGnA=&xsec_source=pc_feed"
+
+# 访问具体的笔记页面
+print(f"正在访问: {note_url}")
+page.get(note_url)
+
+# 等待页面加载
+print("等待页面加载...")
+time.sleep(3)
+
+# 滚动加载评论
+print("正在滚动加载评论区...")
+for i in range(5):
+    page.scroll.down(800)
+    time.sleep(2)
+
+print("开始抓取评论区数据...")
+
+# 持续监听评论API
+try:
+    comment_count = 0
+    max_comments = 10  # 最多抓取100条评论
+    
+    while comment_count < max_comments:
+        try:
+            response = page.listen.wait(timeout=8)
+            if response and response.response and response.response.body:
+                data = response.response.body
+                
+                # 解析评论数据
+                if 'data' in data and 'comments' in data['data']:
+                    comments = data['data']['comments']
+                    print(f"\n=== 捕获到 {len(comments)} 条评论 ===")
+                    
+                    for comment in comments:
+                        try:
+                            # 提取评论信息
+                            comment_info = {
+                                'id': comment.get('id', ''),
+                                'content': comment.get('content', ''),
+                                'user': comment.get('nickname'),
+                                'username': (
+                                            comment.get('nickname') or
+                                            comment.get('user', {}).get('nickname') or
+                                            comment.get('user_info', {}).get('nickname') or
+                                            comment.get('author') or
+                                            comment.get('user_name') or
+                                            '匿名用户'
+                                        ),
+                                
+                                'likes': comment.get('like_count', 0),
+                                'time': comment.get('create_time', ''),
+                                'ip_location': comment.get('ip_location', ''),
+                                'reply_count': comment.get('sub_comment_count', 0),
+                                'parent_id': comment.get('parent_id', '')
+                            }
+                            
+                            all_comments.append(comment_info)
+                            comment_count += 1
+                            
+                            # 打印评论信息
+                            print(f"【评论{comment_count}】")
+                            print(f"用户: {comment_info['username']}")
+                            print(f"内容: {comment_info['content'][:100]}...")
+                            print(f"点赞: {comment_info['likes']} | 时间: {comment_info['time']}")
+                            print(comment_info['user'],comment_info['content'],comment_info['ip_location'])
+
+                            if comment_info['ip_location']:
+                                print(f"IP: {comment_info['ip_location']}")
+                            print("-" * 50)
+                            
+                        except Exception as e:
+                            print(f"解析单条评论出错: {e}")
+                            continue
+                            
+                    print(f"已抓取 {comment_count} 条评论")
+                    
+                    # 如果还有更多评论，继续滚动
+                    if len(comments) > 0:
+                        page.scroll.down(1000)
+                        time.sleep(3)
+                        
+                elif 'data' in data and 'notes' in data['data']:
+                    # 可能是笔记详情页的数据
+                    print("获取到笔记详情数据，继续监听评论...")
+                    
+        except Exception as e:
+            print(f"等待评论数据超时: {e}")
+            # 继续滚动尝试加载更多
+            page.scroll.down(800)
+            time.sleep(2)
+            
+            # 检查是否真的没有更多评论了
+            if comment_count > 0:
+                break
+
+    print(f"\n总共抓取到 {len(all_comments)} 条评论")
+    
+    # 保存到文件
+    with open('xiaohongshu_comments.json', 'w', encoding='utf-8') as f:
+        json.dump(all_comments, f, ensure_ascii=False, indent=2)
+    print("所有评论数据已保存到 xiaohongshu_comments.json")
+
+except KeyboardInterrupt:
+    print("用户中断")
+finally:
+    # 保存已抓取的数据
+    if all_comments:
+        with open('xiaohongshu_comments.json', 'w', encoding='utf-8') as f:
+            json.dump(all_comments, f, ensure_ascii=False, indent=2)
+        print(f"已保存 {len(all_comments)} 条评论到文件")
+    
+    page.quit()
+    print("浏览器已关闭")
